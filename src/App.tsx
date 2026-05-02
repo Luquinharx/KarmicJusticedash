@@ -2,9 +2,9 @@ import { onValue, ref } from "firebase/database";
 import {
   Activity,
   BarChart3,
-  CalendarClock,
   CheckCircle2,
   ChevronsUpDown,
+  ExternalLink,
   Filter,
   History,
   Home,
@@ -19,7 +19,6 @@ import type {
   ClanDatabase,
   ClanSnapshot,
   Filters,
-  HistoryFilters,
   Member,
   RouteId,
   SortKey,
@@ -43,12 +42,6 @@ const defaultWeekFilters: Filters = {
   minLoot: 0,
 };
 
-const defaultHistoryFilters: HistoryFilters = {
-  search: "",
-  rank: "all",
-  sort: "weekly_ts:desc",
-};
-
 const sortOptions: Array<{ label: string; value: SortValue }> = [
   { label: "Highest Weekly TS", value: "weekly_ts:desc" },
   { label: "Highest Clan Weekly TS", value: "weekly_clan_ts:desc" },
@@ -57,6 +50,134 @@ const sortOptions: Array<{ label: string; value: SortValue }> = [
   { label: "Username A-Z", value: "username:asc" },
   { label: "Rank A-Z", value: "clan_rank:asc" },
 ];
+
+const simulatedHistoryMembers: Member[] = [
+  {
+    username: "Adao",
+    clan_rank: "Soldier",
+    profile_id: 13842861,
+    weekly_ts: 128450,
+    weekly_clan_ts: 482000,
+    weekly_loot: 842,
+    weekly_clan_loot: 3120,
+  },
+  {
+    username: "Alpha",
+    clan_rank: "Officer",
+    profile_id: 6725867,
+    weekly_ts: 118230,
+    weekly_clan_ts: 482000,
+    weekly_loot: 788,
+    weekly_clan_loot: 3120,
+  },
+  {
+    username: "babynhoxpk",
+    clan_rank: "Recruit",
+    profile_id: 12156656,
+    weekly_ts: 96750,
+    weekly_clan_ts: 482000,
+    weekly_loot: 641,
+    weekly_clan_loot: 3120,
+  },
+  {
+    username: "Billy Bad Ass",
+    clan_rank: "Veteran",
+    profile_id: 5698504,
+    weekly_ts: 73990,
+    weekly_clan_ts: 482000,
+    weekly_loot: 512,
+    weekly_clan_loot: 3120,
+  },
+  {
+    username: "CeDrixDerBoss",
+    clan_rank: "Soldier",
+    profile_id: 9794857,
+    weekly_ts: 64630,
+    weekly_clan_ts: 482000,
+    weekly_loot: 337,
+    weekly_clan_loot: 3120,
+  },
+];
+
+function ensureFourHistoryEntries(
+  savedEntries: Array<{ key: string; snapshot: ClanSnapshot }>,
+  currentSnapshot: ClanSnapshot | null,
+) {
+  if (savedEntries.length >= 4) return savedEntries;
+
+  const simulatedEntries = simulatedHistoryEntries(currentSnapshot, 4 - savedEntries.length);
+  const savedKeys = new Set(savedEntries.map((entry) => entry.key));
+  return [
+    ...savedEntries,
+    ...simulatedEntries.filter((entry) => !savedKeys.has(entry.key)),
+  ].sort((a, b) =>
+    String(b.snapshot.week?.ends_at || b.key).localeCompare(
+      String(a.snapshot.week?.ends_at || a.key),
+    ),
+  );
+}
+
+function simulatedHistoryEntries(
+  source: ClanSnapshot | null,
+  count = 4,
+): Array<{ key: string; snapshot: ClanSnapshot }> {
+  const sourceMembers = normalizeMembers(source);
+  const members = sourceMembers.length ? sourceMembers : simulatedHistoryMembers;
+  const baseEndsAt = new Date(source?.week?.ends_at || "2026-04-27T07:55:00-03:00");
+  const multipliers = [0.94, 1.08, 0.87, 1.16].slice(0, count);
+
+  return multipliers.map((multiplier, weekIndex) => {
+    const endsAt = new Date(baseEndsAt);
+    endsAt.setDate(baseEndsAt.getDate() - (weekIndex + 1) * 7);
+    const startsAt = new Date(endsAt);
+    startsAt.setDate(endsAt.getDate() - 7);
+    const weekKey = `${endsAt.toISOString().slice(0, 10)}_0755_brt_simulated`;
+    const adjustedMembers = members.map((member, memberIndex) => {
+      const activityShape = 1 + ((memberIndex % 5) - 2) * 0.035;
+      const weeklyTs = Math.round(Math.max(member.weekly_ts, 26000 + memberIndex * 4100) * multiplier * activityShape);
+      const weeklyLoot = Math.round(Math.max(member.weekly_loot, 120 + memberIndex * 42) * multiplier * activityShape);
+      const clanWeeklyTs = Math.round(Math.max(member.weekly_clan_ts, 0) * multiplier * activityShape);
+      const clanWeeklyLoot = Math.round(Math.max(member.weekly_clan_loot, 0) * multiplier * activityShape);
+
+      return {
+        username: member.username,
+        clan_rank: member.clan_rank,
+        profile_id: member.profile_id,
+        dfprofiler_url: member.dfprofiler_url,
+        dead_frontier_profile_url: member.dead_frontier_profile_url,
+        weekly_ts: weeklyTs,
+        weekly_clan_ts: clanWeeklyTs,
+        weekly_loot: weeklyLoot,
+        weekly_clan_loot: clanWeeklyLoot,
+      };
+    });
+    const weeklyClanTs = adjustedMembers.reduce((total, member) => total + member.weekly_clan_ts, 0);
+    const weeklyClanLoot = adjustedMembers.reduce((total, member) => total + member.weekly_clan_loot, 0);
+
+    return {
+      key: weekKey,
+      snapshot: {
+        clan: {
+          id: source?.clan?.id || 58,
+          name: source?.clan?.name || "Karmic Justice",
+          url: source?.clan?.url,
+          weekly_ts: weeklyClanTs,
+          weekly_loot: weeklyClanLoot,
+        },
+        week: {
+          key: weekKey,
+          starts_at: startsAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+          timezone: source?.week?.timezone || "America/Sao_Paulo",
+        },
+        members: adjustedMembers,
+        member_count: adjustedMembers.length,
+        collected_at: endsAt.toISOString(),
+        source: "simulated-history",
+      },
+    };
+  });
+}
 
 function routeFromHash(): RouteId {
   const hash = window.location.hash.replace("#", "");
@@ -69,7 +190,6 @@ function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [dbError, setDbError] = useState("");
   const [weekFilters, setWeekFilters] = useState<Filters>(defaultWeekFilters);
-  const [historyFilters, setHistoryFilters] = useState<HistoryFilters>(defaultHistoryFilters);
   const [selectedHistoryKey, setSelectedHistoryKey] = useState("");
 
   useEffect(() => {
@@ -101,7 +221,7 @@ function App() {
     [clanData],
   );
 
-  const historyEntries = useMemo(
+  const savedHistoryEntries = useMemo(
     () =>
       Object.entries(clanData.weekly_history || {})
         .map(([key, snapshot]) => ({ key, snapshot }))
@@ -111,6 +231,10 @@ function App() {
           ),
         ),
     [clanData.weekly_history],
+  );
+  const historyEntries = useMemo(
+    () => ensureFourHistoryEntries(savedHistoryEntries, currentSnapshot),
+    [currentSnapshot, savedHistoryEntries],
   );
 
   useEffect(() => {
@@ -152,8 +276,6 @@ function App() {
             snapshot={historySnapshot}
             selectedKey={selectedHistoryKey}
             onSelectedKeyChange={setSelectedHistoryKey}
-            filters={historyFilters}
-            onFiltersChange={setHistoryFilters}
           />
         ) : null}
       </main>
@@ -165,7 +287,9 @@ function Topbar({ route, isConnected }: { route: RouteId; isConnected: boolean }
   return (
     <header className="topbar">
       <a className="brand" href="#home" aria-label="Karmic Justice Home">
-        <span className="brand-mark">KJ</span>
+        <span className="brand-mark" aria-hidden="true">
+          <img src="/karmic-mark.svg" alt="" />
+        </span>
         <span>
           <strong>Karmic Justice</strong>
           <small>Clan intelligence</small>
@@ -207,15 +331,29 @@ function NavLink({
 
 function HomeView() {
   return (
-    <section className="view home-view">
-      <section className="hero">
-        <video src={heroVideo} autoPlay muted loop playsInline aria-label="Karmic Justice hero video" />
+    <section className="home-view">
+      <section className="hero" aria-label="Karmic Justice command center">
+        <video src={heroVideo} autoPlay muted loop playsInline />
+        <div className="hero-grid" aria-hidden="true" />
         <div className="hero-overlay">
           <div className="hero-copy">
-            <div className="hero-actions">
-              <a href="#week">Open Current Week</a>
-            </div>
+            <p className="eyebrow">Dead Frontier clan analytics</p>
+            <p>Live weekly performance, four-week trend analysis, and direct player profile access.</p>
           </div>
+          <div className="hero-signal" aria-hidden="true">
+            <span>CLAN 58</span>
+            <strong>ONLINE</strong>
+          </div>
+          <nav className="hero-actions" aria-label="Hero navigation">
+            <a href="#week">
+              <span>01</span>
+              Current Week
+            </a>
+            <a href="#history">
+              <span>02</span>
+              History Analysis
+            </a>
+          </nav>
         </div>
       </section>
     </section>
@@ -312,85 +450,49 @@ function HistoryView({
   snapshot,
   selectedKey,
   onSelectedKeyChange,
-  filters,
-  onFiltersChange,
 }: {
   entries: Array<{ key: string; snapshot: ClanSnapshot }>;
   snapshot: ClanSnapshot | null;
   selectedKey: string;
   onSelectedKeyChange: (key: string) => void;
-  filters: HistoryFilters;
-  onFiltersChange: (filters: HistoryFilters) => void;
 }) {
   const members = useMemo(() => normalizeMembers(snapshot), [snapshot]);
-  const filtered = useMemo(() => applyFilters(members, filters), [members, filters]);
   const totals = snapshotTotals(snapshot, members);
-  const ranks = useMemo(() => uniqueRanks(members), [members]);
-  const topThreeTs = [...members].sort((a, b) => b.weekly_ts - a.weekly_ts).slice(0, 3);
-  const topThreeLoot = [...members].sort((a, b) => b.weekly_loot - a.weekly_loot).slice(0, 3);
+  const activeMembers = members.filter((member) => member.weekly_ts > 0 || member.weekly_loot > 0).length;
+  const isSimulated = entries.some((entry) => entry.snapshot.source === "simulated-history");
 
   return (
     <DataViewShell
-      eyebrow={`Saved weeks: ${formatNumber(entries.length)}`}
+      eyebrow={`${isSimulated ? "Simulated weeks" : "Saved weeks"}: ${formatNumber(entries.length)}`}
       title="Dash History"
       range={formatWeekRange(snapshot)}
-      systemLabel={`Archive online (${entries.length})`}
+      systemLabel={`${isSimulated ? "Preview archive" : "Archive online"} (${entries.length})`}
       preControls={
         <section className="summary-grid" aria-label="History summary">
           <Metric icon={<BarChart3 />} label="Archived Clan TS" value={formatCompactNumber(totals.weeklyClanTs)} title={formatNumber(totals.weeklyClanTs)} />
           <Metric icon={<Trophy />} label="Archived Clan Loot" value={formatCompactNumber(totals.weeklyClanLoot)} title={formatNumber(totals.weeklyClanLoot)} />
           <Metric icon={<Users />} label="Archived Members" value={formatNumber(totals.memberCount)} />
-          <Metric icon={<CalendarClock />} label="Closed At" value={formatDate(snapshot?.week?.ends_at)} />
+          <Metric icon={<Activity />} label="Archived Active" value={formatNumber(activeMembers)} />
         </section>
       }
       controls={
         <HistoryControls
           entries={entries}
           selectedKey={selectedKey}
-          filters={filters}
-          ranks={ranks}
           onSelectedKeyChange={onSelectedKeyChange}
-          onFiltersChange={onFiltersChange}
         />
       }
       extra={
         <>
-          <section className="podium-grid" aria-label="Archived weekly leaders">
-            {topThreeTs.map((member, index) => (
-              <PodiumCard
-                key={`${member.username}-${index}`}
-                position={index + 1}
-                member={member}
-                metricLabel="Weekly TS"
-                metricValue={member.weekly_ts}
-              />
-            ))}
-            {!topThreeTs.length ? <EmptyState label="No archived leaders yet." /> : null}
-          </section>
-          <section className="podium-grid" aria-label="Archived weekly loot leaders">
-            {topThreeLoot.map((member, index) => (
-              <PodiumCard
-                key={`${member.username}-history-loot-${index}`}
-                position={index + 1}
-                member={member}
-                metricLabel="Weekly Loot"
-                metricValue={member.weekly_loot}
-              />
-            ))}
-            {!topThreeLoot.length ? <EmptyState label="No archived loot leaders yet." /> : null}
-          </section>
-          <HistoryStrip entries={entries} />
+          <DashboardSection
+            title="Four Week Comparison"
+            value={`${formatNumber(entries.slice(0, 4).length)} weeks`}
+          >
+            <HistoryAnalysis entries={entries.slice(0, 4)} />
+          </DashboardSection>
         </>
       }
-      table={
-        <MembersTable
-          members={filtered}
-          sort={filters.sort}
-          onSort={(sort) => onFiltersChange({ ...filters, sort })}
-          countLabel={`${formatNumber(filtered.length)} members`}
-          totalLabel={`${formatCompactNumber(totals.weeklyClanTs)} TS / ${formatCompactNumber(totals.weeklyClanLoot)} loot`}
-        />
-      }
+      table={null}
     />
   );
 }
@@ -478,20 +580,14 @@ function WeekControls({
 function HistoryControls({
   entries,
   selectedKey,
-  filters,
-  ranks,
   onSelectedKeyChange,
-  onFiltersChange,
 }: {
   entries: Array<{ key: string; snapshot: ClanSnapshot }>;
   selectedKey: string;
-  filters: HistoryFilters;
-  ranks: string[];
   onSelectedKeyChange: (key: string) => void;
-  onFiltersChange: (filters: HistoryFilters) => void;
 }) {
   return (
-    <section className="controls history-controls" aria-label="History filters">
+    <section className="controls history-controls" aria-label="History week selection">
       <label>
         <span>Week</span>
         <select value={selectedKey} onChange={(event) => onSelectedKeyChange(event.target.value)}>
@@ -506,21 +602,180 @@ function HistoryControls({
           )}
         </select>
       </label>
-      <SearchField
-        value={filters.search}
-        onChange={(search) => onFiltersChange({ ...filters, search })}
-      />
-      <RankSelect
-        value={filters.rank}
-        ranks={ranks}
-        onChange={(rank) => onFiltersChange({ ...filters, rank })}
-      />
-      <SortSelect
-        value={filters.sort}
-        onChange={(sort) => onFiltersChange({ ...filters, sort })}
-      />
     </section>
   );
+}
+
+function DashboardSection({
+  title,
+  value,
+  children,
+}: {
+  title: string;
+  value: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="dashboard-section">
+      <div className="dashboard-section-heading">
+        <strong>{title}</strong>
+        <span>{value}</span>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function formatSignedCompact(value: number) {
+  if (!value) return "No previous";
+  return `${value > 0 ? "+" : "-"}${formatCompactNumber(Math.abs(value))}`;
+}
+
+function deltaTone(value: number) {
+  if (value > 0) return "positive";
+  if (value < 0) return "negative";
+  return "neutral";
+}
+
+function HistoryAnalysis({ entries }: { entries: Array<{ key: string; snapshot: ClanSnapshot }> }) {
+  const weeks = entries.map((entry) => {
+    const members = normalizeMembers(entry.snapshot);
+    const totals = snapshotTotals(entry.snapshot, members);
+    const topTs = [...members].sort((a, b) => b.weekly_ts - a.weekly_ts)[0];
+    const topLoot = [...members].sort((a, b) => b.weekly_loot - a.weekly_loot)[0];
+    const activeMembers = members.filter((member) => member.weekly_ts > 0 || member.weekly_loot > 0).length;
+
+    return {
+      ...entry,
+      members,
+      totals,
+      topTs,
+      topLoot,
+      activeMembers,
+      label: entry.snapshot.week?.ends_at ? formatDate(entry.snapshot.week.ends_at) : entry.key,
+    };
+  });
+  const memberRows = historyMemberRows(weeks);
+
+  return (
+    <section className="history-analysis" aria-label="Four week analysis">
+      <section className="week-analysis-grid" aria-label="Week by week comparison">
+        {weeks.map((week, index) => {
+          const previous = weeks[index + 1];
+          const tsDelta = previous ? week.totals.weeklyClanTs - previous.totals.weeklyClanTs : 0;
+          const lootDelta = previous ? week.totals.weeklyClanLoot - previous.totals.weeklyClanLoot : 0;
+
+          return (
+            <article className="week-analysis-card" key={week.key}>
+              <div>
+                <strong>{week.label}</strong>
+                <span>{week.snapshot.source === "simulated-history" ? "Simulated week" : "Saved week"}</span>
+              </div>
+              <dl>
+                <div>
+                  <dt>Clan TS</dt>
+                  <dd title={formatNumber(week.totals.weeklyClanTs)}>{formatCompactNumber(week.totals.weeklyClanTs)}</dd>
+                  <small className={deltaTone(tsDelta)}>{formatSignedCompact(tsDelta)}</small>
+                </div>
+                <div>
+                  <dt>Clan Loot</dt>
+                  <dd title={formatNumber(week.totals.weeklyClanLoot)}>{formatCompactNumber(week.totals.weeklyClanLoot)}</dd>
+                  <small className={deltaTone(lootDelta)}>{formatSignedCompact(lootDelta)}</small>
+                </div>
+                <div>
+                  <dt>Active</dt>
+                  <dd>{formatNumber(week.activeMembers)}</dd>
+                </div>
+              </dl>
+              <p>
+                TS: <b>{week.topTs?.username || "--"}</b>
+              </p>
+              <p>
+                Loot: <b>{week.topLoot?.username || "--"}</b>
+              </p>
+            </article>
+          );
+        })}
+      </section>
+
+      <section className="table-shell compact-history-table" aria-label="Four week member matrix">
+        <div className="table-meta">
+          <strong>Member trend matrix</strong>
+          <span>weekly values, not cumulative</span>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Username</th>
+                {weeks.map((week, index) => (
+                  <th key={week.key}>W{index + 1} TS</th>
+                ))}
+                {weeks.map((week, index) => (
+                  <th key={`${week.key}-loot`}>W{index + 1} Loot</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {memberRows.map((row) => (
+                <tr key={row.member.username}>
+                  <td>
+                    <MemberUsername member={row.member} />
+                  </td>
+                  {row.weeklyTs.map((value, index) => (
+                    <td className="numeric" key={`${row.member.username}-ts-${index}`} title={formatNumber(value)}>
+                      {formatCompactNumber(value)}
+                    </td>
+                  ))}
+                  {row.weeklyLoot.map((value, index) => (
+                    <td className="numeric" key={`${row.member.username}-loot-${index}`} title={formatNumber(value)}>
+                      {formatCompactNumber(value)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function historyMemberRows(
+  weeks: Array<{
+    members: Member[];
+  }>,
+) {
+  const rows = new Map<
+    string,
+    {
+      member: Member;
+      weeklyTs: number[];
+      weeklyLoot: number[];
+    }
+  >();
+
+  weeks.forEach((week, weekIndex) => {
+    week.members.forEach((member) => {
+      const row =
+        rows.get(member.username) ||
+        {
+          member,
+          weeklyTs: Array(weeks.length).fill(0),
+          weeklyLoot: Array(weeks.length).fill(0),
+        };
+
+      row.member = row.member.dead_frontier_profile_url ? row.member : member;
+      row.weeklyTs[weekIndex] = member.weekly_ts;
+      row.weeklyLoot[weekIndex] = member.weekly_loot;
+      rows.set(member.username, row);
+    });
+  });
+
+  return [...rows.values()]
+    .sort((a, b) => Math.max(...b.weeklyTs) - Math.max(...a.weeklyTs))
+    .slice(0, 12);
 }
 
 function SearchField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
@@ -649,7 +904,9 @@ function MembersTable({
               members.map((member, index) => (
                 <tr key={`${member.username}-${index}`}>
                   <td className="position">{index + 1}</td>
-                  <td>{member.username}</td>
+                  <td>
+                    <MemberUsername member={member} />
+                  </td>
                   <td>
                     <span className={`rank-badge ${rankTone(member.clan_rank)}`}>{member.clan_rank}</span>
                   </td>
@@ -670,6 +927,25 @@ function MembersTable({
         </table>
       </div>
     </section>
+  );
+}
+
+function MemberUsername({ member }: { member: Member }) {
+  if (!member.dead_frontier_profile_url) {
+    return <span>{member.username}</span>;
+  }
+
+  return (
+    <a
+      className="username-link"
+      href={member.dead_frontier_profile_url}
+      target="_blank"
+      rel="noreferrer"
+      title={`Open ${member.username} in Dead Frontier`}
+    >
+      <span>{member.username}</span>
+      <ExternalLink size={13} />
+    </a>
   );
 }
 
@@ -695,34 +971,6 @@ function SortableTh({
         {active ? <span>{direction}</span> : null}
       </button>
     </th>
-  );
-}
-
-function HistoryStrip({ entries }: { entries: Array<{ key: string; snapshot: ClanSnapshot }> }) {
-  if (!entries.length) {
-    return (
-      <section className="history-strip">
-        <EmptyState label="No closed week has been saved yet." />
-      </section>
-    );
-  }
-
-  return (
-    <section className="history-strip" aria-label="Saved weeks">
-      {entries.slice(0, 8).map(({ key, snapshot }) => {
-        const members = normalizeMembers(snapshot);
-        const totals = snapshotTotals(snapshot, members);
-        const label = snapshot.week?.ends_at ? formatDate(snapshot.week.ends_at) : key;
-
-        return (
-          <article className="week-chip" key={key}>
-            <strong>{label}</strong>
-            <span title={formatNumber(totals.weeklyClanTs)}>{formatCompactNumber(totals.weeklyClanTs)} TS</span>
-            <small title={formatNumber(totals.weeklyClanLoot)}>{formatCompactNumber(totals.weeklyClanLoot)} loot</small>
-          </article>
-        );
-      })}
-    </section>
   );
 }
 

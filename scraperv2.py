@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ WEEK_END_WEEKDAY = 0  # Monday
 WEEK_END_HOUR = 7
 WEEK_END_MINUTE = 55
 SAVE_GRACE_MINUTES = 10
+DEAD_FRONTIER_PROFILE_BASE = "https://fairview.deadfrontier.com/onlinezombiemmo/index.php?action=profile;u="
 
 
 class ScraperError(RuntimeError):
@@ -128,6 +130,15 @@ def fetch_profile_html(profile_url: str, session: requests.Session) -> str:
     return response.text
 
 
+def extract_profile_id(profile_url: str) -> int | None:
+    match = re.search(r"/profile/view/(\d+)", profile_url)
+    return int(match.group(1)) if match else None
+
+
+def build_dead_frontier_profile_url(profile_id: int) -> str:
+    return f"{DEAD_FRONTIER_PROFILE_BASE}{profile_id}"
+
+
 def parse_profile_weekly_stats(html: str) -> dict[str, int]:
     soup = BeautifulSoup(html, "html.parser")
     stats: dict[str, int] = {}
@@ -206,6 +217,11 @@ def parse_clan_snapshot(html: str) -> dict[str, Any]:
         profile_link = row.find("a", href=True)
         if profile_link:
             profile_url = urljoin(CLAN_URL, profile_link["href"])
+            profile_id = extract_profile_id(profile_url)
+            if profile_id is not None:
+                member["profile_id"] = profile_id
+                member["dfprofiler_url"] = profile_url
+                member["dead_frontier_profile_url"] = build_dead_frontier_profile_url(profile_id)
             try:
                 profile_stats = parse_profile_weekly_stats(fetch_profile_html(profile_url, session))
                 member.update(profile_stats)

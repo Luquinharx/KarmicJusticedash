@@ -29,6 +29,12 @@ export interface RawMember {
   username?: string;
   rank?: string;
   clan_rank?: string;
+  profile_id?: number | string;
+  player_id?: number | string;
+  df_profile_id?: number | string;
+  user_id?: number | string;
+  dfprofiler_url?: string;
+  dead_frontier_profile_url?: string;
   weekly_loot?: number | string;
   weekly_clan_loot?: number | string;
   weekly_loot_clan?: number | string;
@@ -57,6 +63,9 @@ export interface ClanDatabase {
 export interface Member {
   username: string;
   clan_rank: string;
+  profile_id?: number;
+  dfprofiler_url?: string;
+  dead_frontier_profile_url?: string;
   weekly_loot: number;
   weekly_clan_loot: number;
   weekly_ts: number;

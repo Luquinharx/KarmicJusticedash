@@ -1,6 +1,8 @@
 import type { ClanSnapshot, Filters, HistoryFilters, Member, RawMember } from "./types";
 
 export const numberFormatter = new Intl.NumberFormat("en-US");
+const deadFrontierProfileBase =
+  "https://fairview.deadfrontier.com/onlinezombiemmo/index.php?action=profile;u=";
 
 export const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -13,6 +15,11 @@ export const dateFormatter = new Intl.DateTimeFormat("en-US", {
 export function toNumber(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toOptionalNumber(value: unknown): number | undefined {
+  const parsed = toNumber(value);
+  return parsed > 0 ? parsed : undefined;
 }
 
 export function formatNumber(value: unknown): string {
@@ -62,14 +69,25 @@ export function normalizeMembers(snapshot?: ClanSnapshot | null): Member[] {
       0,
   );
 
-  return members.map((member) => ({
-    username: String(member.username || "--"),
-    clan_rank: String(member.clan_rank || member.rank || "--"),
-    weekly_loot: toNumber(member.weekly_loot),
-    weekly_clan_loot: toNumber(member.weekly_clan_loot ?? member.weekly_loot_clan ?? clanLoot),
-    weekly_ts: toNumber(member.weekly_ts),
-    weekly_clan_ts: toNumber(member.weekly_clan_ts ?? member.weekly_ts_clan ?? clanTs),
-  }));
+  return members.map((member) => {
+    const profileId = toOptionalNumber(
+      member.profile_id ?? member.player_id ?? member.df_profile_id ?? member.user_id,
+    );
+
+    return {
+      username: String(member.username || "--"),
+      clan_rank: String(member.clan_rank || member.rank || "--"),
+      profile_id: profileId,
+      dfprofiler_url: member.dfprofiler_url,
+      dead_frontier_profile_url:
+        member.dead_frontier_profile_url ||
+        (profileId ? `${deadFrontierProfileBase}${profileId}` : undefined),
+      weekly_loot: toNumber(member.weekly_loot),
+      weekly_clan_loot: toNumber(member.weekly_clan_loot ?? member.weekly_loot_clan ?? clanLoot),
+      weekly_ts: toNumber(member.weekly_ts),
+      weekly_clan_ts: toNumber(member.weekly_clan_ts ?? member.weekly_ts_clan ?? clanTs),
+    };
+  });
 }
 
 export function snapshotTotals(snapshot: ClanSnapshot | null | undefined, members: Member[]) {

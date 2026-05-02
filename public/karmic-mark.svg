@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Karmic Justice mark">
+  <defs>
+    <linearGradient id="shield" x1="12" x2="52" y1="8" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#161616"/>
+      <stop offset="0.48" stop-color="#090909"/>
+      <stop offset="1" stop-color="#051315"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="10" x2="54" y1="10" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff7a00"/>
+      <stop offset="0.48" stop-color="#ff4d00"/>
+      <stop offset="1" stop-color="#00c4c7"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="#050505"/>
+  <path d="M32 5 54 15v17c0 13.7-8.8 22.7-22 27C18.8 54.7 10 45.7 10 32V15L32 5Z" fill="url(#shield)" stroke="url(#edge)" stroke-width="2.4"/>
+  <path d="M32 11v45" stroke="#f7f3e8" stroke-width="2" stroke-linecap="round" opacity=".74"/>
+  <path d="M20 23h24" stroke="#00c4c7" stroke-width="2.3" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M24 23 18 35h12L24 23Zm16 0-6 12h12L40 23Z" fill="none" stroke="#ff7a00" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M18 35c1.4 3 3.4 4.5 6 4.5s4.6-1.5 6-4.5M34 35c1.4 3 3.4 4.5 6 4.5s4.6-1.5 6-4.5" stroke="#ff7a00" stroke-width="2" stroke-linecap="round"/>
+  <path d="M21 48h22" stroke="#00c4c7" stroke-width="2.3" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M22 17 15 20.3v8.1M42 17l7 3.3v8.1" stroke="#ff7a00" stroke-width="1.8" stroke-linecap="round" opacity=".72"/>
+</svg>
