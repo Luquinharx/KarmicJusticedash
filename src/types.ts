@@ -1,6 +1,8 @@
 export type RouteId = "home" | "week" | "history";
 
 export type SortKey =
+  | "daily_ts"
+  | "daily_loot"
   | "weekly_ts"
   | "weekly_clan_ts"
   | "weekly_loot"
@@ -14,6 +16,8 @@ export interface ClanInfo {
   id?: number;
   name?: string;
   url?: string;
+  daily_ts?: number;
+  daily_loot?: number;
   weekly_ts?: number;
   weekly_loot?: number;
 }
@@ -35,6 +39,8 @@ export interface RawMember {
   user_id?: number | string;
   dfprofiler_url?: string;
   dead_frontier_profile_url?: string;
+  daily_ts?: number | string;
+  daily_loot?: number | string;
   weekly_loot?: number | string;
   weekly_clan_loot?: number | string;
   weekly_loot_clan?: number | string;
@@ -66,6 +72,8 @@ export interface Member {
   profile_id?: number;
   dfprofiler_url?: string;
   dead_frontier_profile_url?: string;
+  daily_ts: number;
+  daily_loot: number;
   weekly_loot: number;
   weekly_clan_loot: number;
   weekly_ts: number;

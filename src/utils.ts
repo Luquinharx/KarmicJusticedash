@@ -82,6 +82,8 @@ export function normalizeMembers(snapshot?: ClanSnapshot | null): Member[] {
       dead_frontier_profile_url:
         member.dead_frontier_profile_url ||
         (profileId ? `${deadFrontierProfileBase}${profileId}` : undefined),
+      daily_ts: toNumber(member.daily_ts),
+      daily_loot: toNumber(member.daily_loot),
       weekly_loot: toNumber(member.weekly_loot),
       weekly_clan_loot: toNumber(member.weekly_clan_loot ?? member.weekly_loot_clan ?? clanLoot),
       weekly_ts: toNumber(member.weekly_ts),
@@ -101,8 +103,18 @@ export function snapshotTotals(snapshot: ClanSnapshot | null | undefined, member
       members[0]?.weekly_clan_loot ??
       members.reduce((total, member) => total + member.weekly_loot, 0),
   );
+  const dailyClanLoot = toNumber(
+    snapshot?.clan?.daily_loot ??
+      members.reduce((total, member) => total + member.daily_loot, 0),
+  );
+  const dailyClanTs = toNumber(
+    snapshot?.clan?.daily_ts ??
+      members.reduce((total, member) => total + member.daily_ts, 0),
+  );
 
   return {
+    dailyClanTs,
+    dailyClanLoot,
     weeklyClanTs,
     weeklyClanLoot,
     memberCount: members.length,
