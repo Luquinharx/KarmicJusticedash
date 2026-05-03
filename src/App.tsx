@@ -266,8 +266,8 @@ function WeekView({
         <>
           <section className="summary-grid" aria-label="Clan summary">
             <Metric icon={<Trophy />} label="Daily Clan Loot" value={formatCompactNumber(totals.dailyClanLoot)} title={formatNumber(totals.dailyClanLoot)} />
-            <Metric icon={<BarChart3 />} label="Daily Clan TS" value={formatCompactNumber(totals.dailyClanTs)} title={formatNumber(totals.dailyClanTs)} />
             <Metric icon={<Trophy />} label="Weekly Clan Loot" value={formatCompactNumber(totals.weeklyClanLoot)} title={formatNumber(totals.weeklyClanLoot)} />
+            <Metric icon={<BarChart3 />} label="Daily Clan TS" value={formatCompactNumber(totals.dailyClanTs)} title={formatNumber(totals.dailyClanTs)} />
             <Metric icon={<BarChart3 />} label="Weekly Clan TS" value={formatCompactNumber(totals.weeklyClanTs)} title={formatNumber(totals.weeklyClanTs)} />
             <Metric icon={<Users />} label="Members" value={formatNumber(totals.memberCount)} />
             <Metric icon={<Activity />} label="Active Members" value={formatNumber(activeMembers)} />
@@ -768,9 +768,9 @@ function MembersTable({
               <SortableTh label="Username" field="username" sort={sort} onSort={sortHeader} />
               <SortableTh label="Clan Rank" field="clan_rank" sort={sort} onSort={sortHeader} />
               <SortableTh label="Daily Loot" field="daily_loot" sort={sort} onSort={sortHeader} />
-              <SortableTh label="Daily TS" field="daily_ts" sort={sort} onSort={sortHeader} />
               <SortableTh label="Weekly Loot" field="weekly_loot" sort={sort} onSort={sortHeader} />
               <SortableTh label="Clan Weekly Loot" field="weekly_clan_loot" sort={sort} onSort={sortHeader} />
+              <SortableTh label="Daily TS" field="daily_ts" sort={sort} onSort={sortHeader} />
               <SortableTh label="Weekly TS" field="weekly_ts" sort={sort} onSort={sortHeader} />
               <SortableTh label="Clan Weekly TS" field="weekly_clan_ts" sort={sort} onSort={sortHeader} />
             </tr>
@@ -787,9 +787,9 @@ function MembersTable({
                     <span className={`rank-badge ${rankTone(member.clan_rank)}`}>{member.clan_rank}</span>
                   </td>
                   <td className="numeric" title={formatNumber(member.daily_loot)}>{formatCompactNumber(member.daily_loot)}</td>
-                  <td className="numeric" title={formatNumber(member.daily_ts)}>{formatCompactNumber(member.daily_ts)}</td>
                   <td className="numeric" title={formatNumber(member.weekly_loot)}>{formatCompactNumber(member.weekly_loot)}</td>
                   <td className="numeric" title={formatNumber(member.weekly_clan_loot)}>{formatCompactNumber(member.weekly_clan_loot)}</td>
+                  <td className="numeric" title={formatNumber(member.daily_ts)}>{formatCompactNumber(member.daily_ts)}</td>
                   <td className="numeric" title={formatNumber(member.weekly_ts)}>{formatCompactNumber(member.weekly_ts)}</td>
                   <td className="numeric" title={formatNumber(member.weekly_clan_ts)}>{formatCompactNumber(member.weekly_clan_ts)}</td>
                 </tr>
