@@ -37,7 +37,7 @@ import {
 const defaultWeekFilters: Filters = {
   search: "",
   rank: "all",
-  sort: "daily_loot:desc",
+  sort: "weekly_loot:desc",
   minTs: 0,
   minLoot: 0,
 };
@@ -207,14 +207,6 @@ function HomeView() {
         <video src={heroVideo} autoPlay muted loop playsInline />
         <div className="hero-grid" aria-hidden="true" />
         <div className="hero-overlay">
-          <div className="hero-copy">
-            <p className="eyebrow">Dead Frontier clan analytics</p>
-            <p>Live weekly performance, four-week trend analysis, and direct player profile access.</p>
-          </div>
-          <div className="hero-signal" aria-hidden="true">
-            <span>CLAN 58</span>
-            <strong>ONLINE</strong>
-          </div>
           <nav className="hero-actions" aria-label="Hero navigation">
             <a href="#week">
               <span>01</span>
@@ -648,8 +640,7 @@ function historyMemberRows(
   });
 
   return [...rows.values()]
-    .sort((a, b) => Math.max(...b.weeklyTs) - Math.max(...a.weeklyTs))
-    .slice(0, 12);
+    .sort((a, b) => Math.max(...b.weeklyLoot) - Math.max(...a.weeklyLoot));
 }
 
 function SearchField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
@@ -753,6 +744,11 @@ function MembersTable({
     const nextDirection = currentField === field && currentDirection === "desc" ? "asc" : "desc";
     onSort(`${field}:${nextDirection}` as SortValue);
   };
+  
+  const topLootUsernames = [...members]
+    .sort((a, b) => b.weekly_loot - a.weekly_loot)
+    .slice(0, 3)
+    .map(m => m.username);
 
   return (
     <section className="table-shell" aria-label="Members table">
@@ -777,15 +773,19 @@ function MembersTable({
           </thead>
           <tbody>
             {members.length ? (
-              members.map((member, index) => (
-                <tr key={`${member.username}-${index}`}>
-                  <td className="position">{index + 1}</td>
-                  <td>
-                    <MemberUsername member={member} />
-                  </td>
-                  <td>
-                    <span className={`rank-badge ${rankTone(member.clan_rank)}`}>{member.clan_rank}</span>
-                  </td>
+              members.map((member, index) => {
+                const podiumIndex = topLootUsernames.indexOf(member.username);
+                const podiumRank = podiumIndex >= 0 ? podiumIndex + 1 : undefined;
+                
+                return (
+                  <tr key={`${member.username}-${index}`}>
+                    <td className="position">{index + 1}</td>
+                    <td>
+                      <MemberUsername member={member} topLootCount={podiumRank} />
+                    </td>
+                    <td>
+                      <span className={`rank-badge ${rankTone(member.clan_rank)}`}>{member.clan_rank}</span>
+                    </td>
                   <td className="numeric" title={formatNumber(member.daily_loot)}>{formatCompactNumber(member.daily_loot)}</td>
                   <td className="numeric" title={formatNumber(member.weekly_loot)}>{formatCompactNumber(member.weekly_loot)}</td>
                   <td className="numeric" title={formatNumber(member.weekly_clan_loot)}>{formatCompactNumber(member.weekly_clan_loot)}</td>
@@ -793,7 +793,8 @@ function MembersTable({
                   <td className="numeric" title={formatNumber(member.weekly_ts)}>{formatCompactNumber(member.weekly_ts)}</td>
                   <td className="numeric" title={formatNumber(member.weekly_clan_ts)}>{formatCompactNumber(member.weekly_clan_ts)}</td>
                 </tr>
-              ))
+                );
+              })
             ) : (
               <tr>
                 <td className="empty-table" colSpan={9}>
@@ -808,9 +809,25 @@ function MembersTable({
   );
 }
 
-function MemberUsername({ member }: { member: Member }) {
+function MemberUsername({ member, topLootCount }: { member: Member; topLootCount?: number }) {
+  const isTrophyLoot = member.weekly_loot >= 3000;
+  const isTrophyTS = member.weekly_ts >= 100000000;
+
+  const content = (
+    <span className="player-highlight">
+      {topLootCount === 1 && <span title="Top 1 Loot" style={{ marginRight: '4px' }}>🥇</span>}
+      {topLootCount === 2 && <span title="Top 2 Loot" style={{ marginRight: '4px' }}>🥈</span>}
+      {topLootCount === 3 && <span title="Top 3 Loot" style={{ marginRight: '4px' }}>🥉</span>}
+      
+      <span>{member.username}</span> 
+      
+      {isTrophyLoot && <span title="Loot ≥ 3K" style={{ marginLeft: '4px' }}>💰</span>}
+      {isTrophyTS && <span title="TS ≥ 100M" style={{ marginLeft: '4px' }}>💎</span>}
+    </span>
+  );
+
   if (!member.dead_frontier_profile_url) {
-    return <span>{member.username}</span>;
+    return content;
   }
 
   return (
@@ -821,9 +838,106 @@ function MemberUsername({ member }: { member: Member }) {
       rel="noreferrer"
       title={`Open ${member.username} in Dead Frontier`}
     >
-      <span>{member.username}</span>
-      <ExternalLink size={13} />
+      {content}
+      <ExternalLink size={14} />
     </a>
+  );
+}
+
+function HistoryMembersTable({
+  members,
+  countLabel,
+  totalLabel,
+}: {
+  members: Member[];
+  countLabel: string;
+  totalLabel: string;
+}) {
+  const [sortField, setSortField] = useState<SortKey>("weekly_loot");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (field: SortKey) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "desc" ? "asc" : "desc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
+
+  const topLootUsernames = useMemo(() => {
+    return [...members]
+      .sort((a, b) => b.weekly_loot - a.weekly_loot)
+      .slice(0, 3)
+      .map(m => m.username);
+  }, [members]);
+
+  const sortedMembers = useMemo(() => {
+    return [...members].sort((a, b) => {
+      const aVal = a[sortField];
+      const bVal = b[sortField];
+      const modifier = sortDirection === "asc" ? 1 : -1;
+      if (typeof aVal === "string" || typeof bVal === "string") {
+        return String(aVal).localeCompare(String(bVal)) * modifier;
+      }
+      return (Number(aVal) || 0 - Number(bVal) || 0) * modifier;
+    });
+  }, [members, sortField, sortDirection]);
+
+  const activeSort = `${sortField}:${sortDirection}` as SortValue;
+
+  return (
+    <section className="table-shell" aria-label="Historic members table">
+      <div className="table-meta">
+        <strong>{countLabel}</strong>
+        <span>{totalLabel}</span>
+      </div>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <SortableTh label="Username" field="username" sort={activeSort} onSort={handleSort} />
+              <SortableTh label="Clan Rank" field="clan_rank" sort={activeSort} onSort={handleSort} />
+              <SortableTh label="Weekly Loot" field="weekly_loot" sort={activeSort} onSort={handleSort} />
+              <SortableTh label="Clan Weekly Loot" field="weekly_clan_loot" sort={activeSort} onSort={handleSort} />
+              <SortableTh label="Weekly TS" field="weekly_ts" sort={activeSort} onSort={handleSort} />
+              <SortableTh label="Clan Weekly TS" field="weekly_clan_ts" sort={activeSort} onSort={handleSort} />
+            </tr>
+          </thead>
+          <tbody>
+            {sortedMembers.length ? (
+              sortedMembers.map((member, index) => {
+                const podiumIndex = topLootUsernames.indexOf(member.username);
+                const podiumRank = podiumIndex >= 0 ? podiumIndex + 1 : undefined;
+                
+                return (
+                  <tr key={`${member.username}-${index}`}>
+                    <td className="position">{index + 1}</td>
+                    <td>
+                      <MemberUsername member={member} topLootCount={podiumRank} />
+                    </td>
+                    <td>
+                      <span className={`rank-badge ${rankTone(member.clan_rank)}`}>{member.clan_rank}</span>
+                    </td>
+                  <td className="numeric" title={formatNumber(member.weekly_loot)}>{formatCompactNumber(member.weekly_loot)}</td>
+                  <td className="numeric" title={formatNumber(member.weekly_clan_loot)}>{formatCompactNumber(member.weekly_clan_loot)}</td>
+                  <td className="numeric" title={formatNumber(member.weekly_ts)}>{formatCompactNumber(member.weekly_ts)}</td>
+                  <td className="numeric" title={formatNumber(member.weekly_clan_ts)}>{formatCompactNumber(member.weekly_clan_ts)}</td>
+                </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td className="empty-table" colSpan={7}>
+                  No members found in this history snapshot.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

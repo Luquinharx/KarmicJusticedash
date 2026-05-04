@@ -95,13 +95,11 @@ export function normalizeMembers(snapshot?: ClanSnapshot | null): Member[] {
 export function snapshotTotals(snapshot: ClanSnapshot | null | undefined, members: Member[]) {
   const weeklyClanTs = toNumber(
     snapshot?.clan?.weekly_ts ??
-      members[0]?.weekly_clan_ts ??
-      members.reduce((total, member) => total + member.weekly_ts, 0),
+      members.reduce((total, member) => total + member.weekly_clan_ts, 0),
   );
   const weeklyClanLoot = toNumber(
     snapshot?.clan?.weekly_loot ??
-      members[0]?.weekly_clan_loot ??
-      members.reduce((total, member) => total + member.weekly_loot, 0),
+      members.reduce((total, member) => total + member.weekly_clan_loot, 0),
   );
   const dailyClanLoot = toNumber(
     snapshot?.clan?.daily_loot ??
@@ -122,10 +120,13 @@ export function snapshotTotals(snapshot: ClanSnapshot | null | undefined, member
 }
 
 export function formatWeekRange(snapshot?: ClanSnapshot | null): string {
-  const startsAt = snapshot?.week?.starts_at;
-  const endsAt = snapshot?.week?.ends_at;
-  if (!startsAt && !endsAt) return "Waiting for the first collection";
-  return `${formatDate(startsAt)} to ${formatDate(endsAt)}`;
+  if (!snapshot?.collected_at) return "Waiting for the first collection";
+  
+  const start = new Date(snapshot.collected_at);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7);
+  
+  return `${formatDate(start.toISOString())} to ${formatDate(end.toISOString())}`;
 }
 
 export function applyFilters<T extends Filters | HistoryFilters>(

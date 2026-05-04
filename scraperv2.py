@@ -19,14 +19,14 @@ from bs4 import BeautifulSoup
 CLAN_ID = 58
 CLAN_URL = f"https://www.dfprofiler.com/clan/view/{CLAN_ID}"
 FIREBASE_DATABASE_URL = "https://karmiclan-default-rtdb.firebaseio.com/"
-EASTERN_TZ = ZoneInfo("America/New_York")
-LOCAL_TIMEZONE_NAME = "America/New_York"
+LOCAL_TZ = ZoneInfo("America/Sao_Paulo")
+LOCAL_TIMEZONE_NAME = "America/Sao_Paulo"
 WEEK_END_WEEKDAY = 0  # Monday
-WEEK_END_HOUR = 6
+WEEK_END_HOUR = 7
 WEEK_END_MINUTE = 55
-DAY_START_HOUR = 7
+DAY_START_HOUR = 8
 DAY_START_MINUTE = 0
-DAILY_UPDATE_TIMES = ((7, 0), (19, 0))
+DAILY_UPDATE_TIMES = ((8, 0), (20, 0))
 SAVE_GRACE_MINUTES = 10
 DEAD_FRONTIER_PROFILE_BASE = "https://fairview.deadfrontier.com/onlinezombiemmo/index.php?action=profile;u="
 
@@ -62,8 +62,8 @@ def get_text(element: Any) -> str:
 
 def active_week_window(now: datetime | None = None) -> WeekWindow:
     """Return the weekly window shown by the live DFProfiler counters."""
-    now = now or datetime.now(EASTERN_TZ)
-    now = now.astimezone(EASTERN_TZ)
+    now = now or datetime.now(LOCAL_TZ)
+    now = now.astimezone(LOCAL_TZ)
 
     days_since_monday = (now.weekday() - WEEK_END_WEEKDAY) % 7
     week_anchor = (now - timedelta(days=days_since_monday)).replace(
@@ -81,8 +81,8 @@ def active_week_window(now: datetime | None = None) -> WeekWindow:
 
 def completed_week_window(now: datetime | None = None) -> WeekWindow:
     """Return the most recent weekly window that has reached Monday 06:55 Eastern."""
-    now = now or datetime.now(EASTERN_TZ)
-    now = now.astimezone(EASTERN_TZ)
+    now = now or datetime.now(LOCAL_TZ)
+    now = now.astimezone(LOCAL_TZ)
 
     days_since_monday = (now.weekday() - WEEK_END_WEEKDAY) % 7
     latest_anchor = (now - timedelta(days=days_since_monday)).replace(
@@ -100,8 +100,8 @@ def completed_week_window(now: datetime | None = None) -> WeekWindow:
 
 def save_window_for_completed_week(now: datetime | None = None) -> WeekWindow:
     """Return the completed week only during the configured Monday save window."""
-    now = now or datetime.now(EASTERN_TZ)
-    now = now.astimezone(EASTERN_TZ)
+    now = now or datetime.now(LOCAL_TZ)
+    now = now.astimezone(LOCAL_TZ)
     week = completed_week_window(now)
     next_day_start = week.ends_at.replace(
         hour=DAY_START_HOUR,
@@ -117,14 +117,14 @@ def save_window_for_completed_week(now: datetime | None = None) -> WeekWindow:
     raise ScraperError(
         "Fora da janela de gravacao da semana concluida. "
         f"A gravacao automatica acontece toda segunda as {WEEK_END_HOUR:02d}:{WEEK_END_MINUTE:02d} "
-        "no horario Eastern, antes da coleta diaria das 07:00."
+        "no horario de Brasilia, antes da coleta diaria das 08:00."
     )
 
 
 def active_day_window(now: datetime | None = None) -> DayWindow:
     """Return the active daily loot window. The clan day starts at 07:00 Eastern."""
-    now = now or datetime.now(EASTERN_TZ)
-    now = now.astimezone(EASTERN_TZ)
+    now = now or datetime.now(LOCAL_TZ)
+    now = now.astimezone(LOCAL_TZ)
     starts_at = now.replace(
         hour=DAY_START_HOUR,
         minute=DAY_START_MINUTE,
@@ -413,8 +413,8 @@ def save_to_firebase(
 def build_snapshot(week: WeekWindow, collected_at: datetime | None = None) -> dict[str, Any]:
     html = fetch_clan_html()
     parsed = parse_clan_snapshot(html)
-    collected_at = collected_at or datetime.now(EASTERN_TZ)
-    collected_at = collected_at.astimezone(EASTERN_TZ)
+    collected_at = collected_at or datetime.now(LOCAL_TZ)
+    collected_at = collected_at.astimezone(LOCAL_TZ)
 
     return {
         **parsed,
@@ -431,8 +431,8 @@ def build_snapshot(week: WeekWindow, collected_at: datetime | None = None) -> di
 
 
 def seconds_until_next_week_end(now: datetime | None = None) -> float:
-    now = now or datetime.now(EASTERN_TZ)
-    now = now.astimezone(EASTERN_TZ)
+    now = now or datetime.now(LOCAL_TZ)
+    now = now.astimezone(LOCAL_TZ)
     week = active_week_window(now)
     target = week.ends_at
     if target < now:
@@ -441,14 +441,14 @@ def seconds_until_next_week_end(now: datetime | None = None) -> float:
 
 
 def seconds_until_next_daily_update(now: datetime | None = None) -> float:
-    current_time = now or datetime.now(EASTERN_TZ)
-    current_time = current_time.astimezone(EASTERN_TZ)
+    current_time = now or datetime.now(LOCAL_TZ)
+    current_time = current_time.astimezone(LOCAL_TZ)
     return max(0.0, (next_scheduled_run(current_time) - current_time).total_seconds())
 
 
 def next_scheduled_run(now: datetime | None = None) -> datetime:
-    now = now or datetime.now(EASTERN_TZ)
-    now = now.astimezone(EASTERN_TZ)
+    now = now or datetime.now(LOCAL_TZ)
+    now = now.astimezone(LOCAL_TZ)
     candidates: list[datetime] = []
 
     for day_offset in range(8):
@@ -473,7 +473,7 @@ def next_scheduled_run(now: datetime | None = None) -> datetime:
 
 
 def run_once(args: argparse.Namespace) -> dict[str, Any]:
-    now = datetime.now(EASTERN_TZ)
+    now = datetime.now(LOCAL_TZ)
     save_weekly_history = False
     completed_week: WeekWindow | None = None
 
@@ -516,10 +516,10 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def run_daemon(args: argparse.Namespace) -> None:
-    print("Aguardando atualizacoes as 07:00 e 19:00 Eastern; historico semanal segunda as 06:55 Eastern.")
+    print("Aguardando atualizacoes as 08:00 e 20:00; historico semanal segunda as 07:55.")
     while True:
         wake_at = next_scheduled_run()
-        sleep_for = max(0.0, (wake_at - datetime.now(EASTERN_TZ)).total_seconds())
+        sleep_for = max(0.0, (wake_at - datetime.now(LOCAL_TZ)).total_seconds())
         print(f"Proximo snapshot em {wake_at.isoformat()}")
         time.sleep(sleep_for)
         try:
